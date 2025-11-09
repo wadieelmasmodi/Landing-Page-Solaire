@@ -14,6 +14,7 @@ interface FormData {
   email: string;
   telephone: string;
   factureElectricite: string;
+  adresse: string;
   latitude: number | null;
   longitude: number | null;
 }
@@ -25,6 +26,7 @@ export default function SolarLandingPage() {
     email: '',
     telephone: '',
     factureElectricite: '',
+    adresse: '',
     latitude: null,
     longitude: null,
   });
@@ -33,6 +35,8 @@ export default function SolarLandingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [addressSearched, setAddressSearched] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -42,6 +46,40 @@ export default function SolarLandingPage() {
   const handlePositionChange = (lat: number, lng: number) => {
     setPosition([lat, lng]);
     setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+  };
+
+  const handleAddressSearch = async () => {
+    if (!formData.adresse.trim()) {
+      setError('Veuillez entrer une adresse');
+      return;
+    }
+
+    setIsSearching(true);
+    setError(null);
+
+    try {
+      // Utilisation de l'API Nominatim pour le géocodage
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.adresse)}&limit=1&countrycodes=fr`
+      );
+      
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const { lat, lon } = data[0];
+        const newPosition: [number, number] = [parseFloat(lat), parseFloat(lon)];
+        setPosition(newPosition);
+        setFormData(prev => ({ ...prev, latitude: parseFloat(lat), longitude: parseFloat(lon) }));
+        setAddressSearched(true);
+      } else {
+        setError('Adresse non trouvée. Veuillez vérifier et réessayer.');
+      }
+    } catch (err) {
+      setError('Erreur lors de la recherche de l\'adresse. Veuillez réessayer.');
+      console.error(err);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,6 +111,7 @@ export default function SolarLandingPage() {
           prenom: formData.prenom,
           email: formData.email,
           telephone: formData.telephone,
+          adresse: formData.adresse,
           facture_mensuelle_electricite: formData.factureElectricite,
           coordonnees_gps: {
             latitude: formData.latitude,
@@ -91,10 +130,12 @@ export default function SolarLandingPage() {
           email: '',
           telephone: '',
           factureElectricite: '',
+          adresse: '',
           latitude: null,
           longitude: null,
         });
         setPosition(null);
+        setAddressSearched(false);
       } else {
         throw new Error('Erreur lors de l\'envoi');
       }
@@ -268,17 +309,53 @@ export default function SolarLandingPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="adresse">Adresse de votre toiture *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="adresse"
+                    name="adresse"
+                    value={formData.adresse}
+                    onChange={handleInputChange}
+                    placeholder="12 Rue de la Paix, 75002 Paris"
+                    className="flex-1"
+                    required
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={handleAddressSearch}
+                    disabled={isSearching || !formData.adresse.trim()}
+                    variant="outline"
+                  >
+                    {isSearching ? 'Recherche...' : 'Rechercher'}
+                  </Button>
+                </div>
+                {addressSearched && (
+                  <p className="text-sm text-blue-600">
+                    ✓ Adresse localisée. Cliquez maintenant sur votre toiture sur la carte satellite ci-dessous.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
-                  Emplacement de votre toiture *
+                  Cliquez sur votre toiture *
                 </Label>
                 <p className="text-sm text-gray-600 mb-2">
-                  Cliquez sur la carte pour indiquer l'emplacement exact de votre toiture
+                  {!addressSearched 
+                    ? 'Recherchez d\'abord votre adresse pour localiser votre toiture sur la carte satellite'
+                    : 'Cliquez précisément sur votre toiture pour sélectionner les coordonnées GPS'
+                  }
                 </p>
-                <MapSelector position={position} onPositionChange={handlePositionChange} />
+                <MapSelector 
+                  position={position} 
+                  onPositionChange={handlePositionChange}
+                  center={position || undefined}
+                  zoom={addressSearched ? 19 : 13}
+                />
                 {position && (
                   <p className="text-sm text-green-600 mt-2">
-                    ✓ Position sélectionnée: {position[0].toFixed(6)}, {position[1].toFixed(6)}
+                    ✓ Toiture sélectionnée: {position[0].toFixed(6)}, {position[1].toFixed(6)}
                   </p>
                 )}
               </div>
