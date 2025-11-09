@@ -88,7 +88,7 @@ export default function SolarLandingPage() {
     setError(null);
 
     // Validation
-    if (!formData.nom || !formData.prenom || !formData.email || !formData.telephone || !formData.factureElectricite) {
+    if (!formData.nom || !formData.prenom || !formData.email || !formData.telephone || !formData.factureElectricite || !formData.adresse) {
       setError('Veuillez remplir tous les champs');
       setIsSubmitting(false);
       return;
@@ -101,24 +101,21 @@ export default function SolarLandingPage() {
     }
 
     try {
-      const response = await fetch('https://n8n.energum.earth/webhook/dfb660da-1480-40a5-bbdc-7579e6772fe1', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          nom: formData.nom,
-          prenom: formData.prenom,
-          email: formData.email,
-          telephone: formData.telephone,
-          adresse: formData.adresse,
-          facture_mensuelle_electricite: formData.factureElectricite,
-          coordonnees_gps: {
-            latitude: formData.latitude,
-            longitude: formData.longitude,
-          },
-          date_soumission: new Date().toISOString(),
-        }),
+      // Préparer les données pour le webhook n8n (GET avec query params)
+      const webhookData = new URLSearchParams({
+        nom: formData.nom,
+        prenom: formData.prenom,
+        email: formData.email,
+        telephone: formData.telephone,
+        adresse: formData.adresse,
+        facture_mensuelle_electricite: formData.factureElectricite,
+        latitude: formData.latitude?.toString() || '',
+        longitude: formData.longitude?.toString() || '',
+        date_soumission: new Date().toISOString(),
+      });
+
+      const response = await fetch(`https://n8n.energum.earth/webhook/dfb660da-1480-40a5-bbdc-7579e6772fe1?${webhookData.toString()}`, {
+        method: 'GET',
       });
 
       if (response.ok) {
